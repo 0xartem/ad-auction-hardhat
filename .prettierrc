@@ -1,0 +1,14 @@
+{
+    "tabWidth": 4,
+    "semi": false,
+    "useTabs": false,
+    "singleQuote": false,
+    "overrides": [
+        {
+            "files": "*.js",
+            "options": {
+                "tabWidth": 2
+            }
+        }
+    ]
+}
