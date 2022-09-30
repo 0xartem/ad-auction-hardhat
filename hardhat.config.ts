@@ -1,7 +1,8 @@
-require("@nomicfoundation/hardhat-toolbox")
-require("dotenv").config()
-require("hardhat-gas-reporter")
-require("solidity-coverage")
+import "@nomicfoundation/hardhat-toolbox"
+import "dotenv/config"
+import "hardhat-gas-reporter"
+import "solidity-coverage"
+import "@typechain/hardhat"
 
 const GOERLI_RPC_URL = process.env.GOERLI_RPC_URL || "https://eth-goerli/ex"
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0xkey"
