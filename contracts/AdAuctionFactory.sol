@@ -10,12 +10,14 @@ contract AdAuctionFactory {
     function createAdAuction(
         uint256 _startAuctionTime,
         uint256 _endAuctionTime,
-        uint256 _minimumBlockUsdBid
+        uint256 _minimumBlockUsdBid,
+        address priceFeedAddress
     ) public {
         AdAuction adAuction = new AdAuction(
             _startAuctionTime,
             _endAuctionTime,
-            _minimumBlockUsdBid
+            _minimumBlockUsdBid,
+            priceFeedAddress
         );
         adAuctionArray.push(adAuction);
     }

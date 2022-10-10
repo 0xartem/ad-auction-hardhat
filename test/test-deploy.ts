@@ -17,13 +17,13 @@ describe("AdAuction Deployment", () => {
       },
     })) as AdAuction__factory
 
-    adAuction = await AdAuctionFactory.deploy(0, 1, 1)
+    adAuction = await AdAuctionFactory.deploy(0, 1, 1, "0x0")
     await adAuction.deployed()
   })
 
   it("Should throw an InvalidAuctionPeriod error", async () => {
     await expect(
-      AdAuctionFactory.deploy(1, 0, 1)
+      AdAuctionFactory.deploy(1, 0, 1, "0x0")
     ).to.be.revertedWithCustomError(adAuction, "InvalidAuctionPeriod")
   })
 

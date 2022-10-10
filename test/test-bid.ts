@@ -17,7 +17,7 @@ describe("AdAuction bidOnAd", () => {
       },
     })) as AdAuction__factory
 
-    adAuction = await AdAuctionFactory.deploy(0, 1, 1)
+    adAuction = await AdAuctionFactory.deploy(0, 1, 1, "0x0")
     await adAuction.deployed()
   })
 

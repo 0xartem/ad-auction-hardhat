@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.0;
 
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IAdAuction} from "./IAdAuction.sol";
 import {PriceOracle} from "./PriceOracle.sol";
 
@@ -52,10 +53,13 @@ contract AdAuction is IAdAuction {
     address public highestBidderAddr;
     mapping(address => Payer) public addressToPayer;
 
+    AggregatorV3Interface public priceFeed;
+
     constructor(
         uint256 _startAuctionTime,
         uint256 _endAuctionTime,
-        uint256 _minimumBlockUsdBid
+        uint256 _minimumBlockUsdBid,
+        address _priceFeedAddress
     ) {
         owner = msg.sender;
 
@@ -65,6 +69,8 @@ contract AdAuction is IAdAuction {
         endAuctionTime = _endAuctionTime;
         minimumBlockUsdBid = _minimumBlockUsdBid;
         //TODO: Multiply when needs calculations: minimumBlockUsdBid = _minimumBlockUsdBid * 1e18;
+
+        priceFeed = AggregatorV3Interface(_priceFeedAddress);
     }
 
     function bidOnAd(
@@ -79,7 +85,7 @@ contract AdAuction is IAdAuction {
         if (_blockUsdBid <= addressToPayer[highestBidderAddr].blockUsdBid)
             revert HigherBidIsAvailable();
         if (_blockUsdBid < minimumBlockUsdBid) revert BidIsLowerThanMinimum();
-        if (msg.value.convertEthToUsd() < _blockUsdBid)
+        if (msg.value.convertEthToUsd(priceFeed) < _blockUsdBid)
             revert PaidAmountIsLowerThanBid();
 
         Payer storage payer = addressToPayer[msg.sender];
@@ -92,7 +98,7 @@ contract AdAuction is IAdAuction {
 
         highestBidderAddr = msg.sender;
 
-        uint256 usdBalance = payer.ethBalance.convertEthToUsd();
+        uint256 usdBalance = payer.ethBalance.convertEthToUsd(priceFeed);
         uint256 timeLeft = (usdBalance / _blockUsdBid) * 12; // 12 secs per block
         payer.timeLeft = timeLeft;
     }
@@ -102,13 +108,13 @@ contract AdAuction is IAdAuction {
 
         Payer storage payer = addressToPayer[msg.sender];
         if (payer.blockUsdBid == 0) revert NoSuchPayer();
-        if (msg.value.convertEthToUsd() < payer.blockUsdBid)
+        if (msg.value.convertEthToUsd(priceFeed) < payer.blockUsdBid)
             revert PaidAmountIsLowerThanBid();
 
         payer.ethBalance += msg.value;
         payer.withdrew = false;
 
-        uint256 usdBalance = payer.ethBalance.convertEthToUsd();
+        uint256 usdBalance = payer.ethBalance.convertEthToUsd(priceFeed);
         uint256 timeLeft = (usdBalance / payer.blockUsdBid) * 12; // 12 secs per block
         payer.timeLeft = timeLeft;
     }
@@ -169,13 +175,15 @@ contract AdAuction is IAdAuction {
         } else {
             uint256 blocksUsed = timeUsed / 12;
             uint256 paidInUsd = blocksUsed * winner.blockUsdBid;
-            uint256 oldUsdBalance = winner.ethBalance.convertEthToUsd();
+            uint256 oldUsdBalance = winner.ethBalance.convertEthToUsd(
+                priceFeed
+            );
             uint256 newUsdBalance = oldUsdBalance - paidInUsd;
 
             winner.timeLeft = winner.timeLeft - timeUsed;
 
-            winner.ethBalance = newUsdBalance.convertUsdToEth();
-            uint256 paidInEth = paidInUsd.convertUsdToEth();
+            winner.ethBalance = newUsdBalance.convertUsdToEth(priceFeed);
+            uint256 paidInEth = paidInUsd.convertUsdToEth(priceFeed);
             winner.ethUsed += paidInEth;
             ownerBalanceAvailable += paidInEth;
         }

@@ -2,6 +2,7 @@ import "@nomicfoundation/hardhat-toolbox"
 import "dotenv/config"
 import "hardhat-gas-reporter"
 import "solidity-coverage"
+import "hardhat-deploy"
 import "@typechain/hardhat"
 
 const GOERLI_RPC_URL = process.env.GOERLI_RPC_URL || "https://eth-goerli/ex"
@@ -11,12 +12,16 @@ const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY || "key"
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
+  solidity: {
+    compilers: [{ version: "0.8.17" }, { version: "0.6.6" }],
+  },
   defaultNetwork: "hardhat",
   networks: {
     goerli: {
       url: GOERLI_RPC_URL,
       accounts: [PRIVATE_KEY],
       chainId: 420,
+      blockConfirmations: 6,
     },
     localhost: {
       url: "http://localhost:8545",
@@ -31,5 +36,12 @@ module.exports = {
     coinmarketcap: COINMARKETCAP_API_KEY,
     token: "ETH",
   },
-  solidity: "0.8.17",
+  namedAccounts: {
+    deployer: {
+      default: 0,
+    },
+    user: {
+      default: 1,
+    },
+  },
 }
