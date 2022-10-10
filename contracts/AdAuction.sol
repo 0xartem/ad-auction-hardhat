@@ -44,7 +44,6 @@ contract AdAuction is IAdAuction {
 
     address public immutable owner;
 
-    uint256 public constant MINIMUM_BID_REQUIREMENT = 0;
     uint256 public immutable startAuctionTime;
     uint256 public immutable endAuctionTime;
     uint256 public immutable minimumBlockUsdBid;
@@ -61,8 +60,6 @@ contract AdAuction is IAdAuction {
         owner = msg.sender;
 
         if (_endAuctionTime <= _startAuctionTime) revert InvalidAuctionPeriod();
-        if (_minimumBlockUsdBid < MINIMUM_BID_REQUIREMENT)
-            revert InvalidMinimumBidRequirement();
 
         startAuctionTime = _startAuctionTime;
         endAuctionTime = _endAuctionTime;
