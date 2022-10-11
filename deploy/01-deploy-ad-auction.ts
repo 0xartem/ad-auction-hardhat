@@ -25,9 +25,10 @@ module.exports = async ({
     ethUsdPriceFeedAddress = networkConfig[chainId]["ethUsdPriceFeed"]
   }
 
+  const currentTimestamp = Math.floor(Date.now() / 1000)
   const args = [
-    BigNumber.from(0),
-    BigNumber.from(1),
+    BigNumber.from(BigNumber.from(currentTimestamp)),
+    BigNumber.from(BigNumber.from(currentTimestamp + 200000)),
     BigNumber.from(1),
     ethUsdPriceFeedAddress,
   ]
