@@ -6,31 +6,36 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IAdAuction} from "./IAdAuction.sol";
 import {PriceOracle} from "./PriceOracle.sol";
 
+/** @title A contract for ad auction
+ *  @author artem0x
+ *  @notice This contract is to sell anyh ad to a highest bidder
+ *  @dev Use bidOnAd and then topUp as needed
+ */
 contract AdAuction is IAdAuction {
     using PriceOracle for uint256;
 
-    error NotOwner();
+    error AdAuction__NotOwner();
 
-    error InvalidAuctionPeriod();
-    error AuctionHasntStartedYet();
-    error AuctionIsOver();
-    error AuctionIsNotOverYet();
+    error AdAuction__InvalidAuctionPeriod();
+    error AdAuction__AuctionHasntStartedYet();
+    error AdAuction__AuctionIsOver();
+    error AdAuction__AuctionIsNotOverYet();
 
-    error InvalidMinimumBidRequirement();
-    error BidIsLowerThanMinimum();
-    error HigherBidIsAvailable();
-    error PaidAmountIsLowerThanBid();
+    error AdAuction__InvalidMinimumBidRequirement();
+    error AdAuction__BidIsLowerThanMinimum();
+    error AdAuction__HigherBidIsAvailable();
+    error AdAuction__PaidAmountIsLowerThanBid();
 
-    error NoSuchPayer();
-    error HighestBidderCantWithdraw();
-    error BidderAlreadyWithdrew();
-    error BidWithdrawalFailed();
+    error AdAuction__NoSuchPayer();
+    error AdAuction__HighestBidderCantWithdraw();
+    error AdAuction__BidderAlreadyWithdrew();
+    error AdAuction__BidWithdrawalFailed();
 
-    error AdAuctionBalanceIsTooLow();
-    error OwnerWithdrawalFailed();
+    error AdAuction__AdAuctionBalanceIsTooLow();
+    error AdAuction__OwnerWithdrawalFailed();
 
-    error NoWinnerInAuction();
-    error NoFundsToCharge();
+    error AdAuction__NoWinnerInAuction();
+    error AdAuction__NoFundsToCharge();
 
     struct Payer {
         uint256 ethBalance;
@@ -55,6 +60,11 @@ contract AdAuction is IAdAuction {
 
     AggregatorV3Interface public priceFeed;
 
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert AdAuction__NotOwner();
+        _;
+    }
+
     constructor(
         uint256 _startAuctionTime,
         uint256 _endAuctionTime,
@@ -63,7 +73,8 @@ contract AdAuction is IAdAuction {
     ) {
         owner = msg.sender;
 
-        if (_endAuctionTime <= _startAuctionTime) revert InvalidAuctionPeriod();
+        if (_endAuctionTime <= _startAuctionTime)
+            revert AdAuction__InvalidAuctionPeriod();
 
         startAuctionTime = _startAuctionTime;
         endAuctionTime = _endAuctionTime;
@@ -73,20 +84,37 @@ contract AdAuction is IAdAuction {
         priceFeed = AggregatorV3Interface(_priceFeedAddress);
     }
 
+    receive() external payable {
+        topUp();
+    }
+
+    fallback() external payable {
+        topUp();
+    }
+
+    /** @notice This functions places a bid along with the amount
+     *  @dev You can use it to provide or update the bid
+     *  @param _name is a name of the ad
+     *  @param _imageUrl is a url to a resource that will be displayed in the ad
+     *  @param _text is the text that will be displayed along with the resource
+     *  @param _blockUsdBid the amount you want to pay for 1 block (12 sec) in USD
+     */
     function bidOnAd(
         string calldata _name,
         string calldata _imageUrl,
         string calldata _text,
         uint256 _blockUsdBid
     ) external payable {
-        if (block.timestamp < startAuctionTime) revert AuctionHasntStartedYet();
-        if (block.timestamp > endAuctionTime) revert AuctionIsOver();
+        if (block.timestamp < startAuctionTime)
+            revert AdAuction__AuctionHasntStartedYet();
+        if (block.timestamp > endAuctionTime) revert AdAuction__AuctionIsOver();
 
+        if (_blockUsdBid < minimumBlockUsdBid)
+            revert AdAuction__BidIsLowerThanMinimum();
         if (_blockUsdBid <= addressToPayer[highestBidderAddr].blockUsdBid)
-            revert HigherBidIsAvailable();
-        if (_blockUsdBid < minimumBlockUsdBid) revert BidIsLowerThanMinimum();
+            revert AdAuction__HigherBidIsAvailable();
         if (msg.value.convertEthToUsd(priceFeed) < _blockUsdBid)
-            revert PaidAmountIsLowerThanBid();
+            revert AdAuction__PaidAmountIsLowerThanBid();
 
         Payer storage payer = addressToPayer[msg.sender];
         payer.ethBalance += msg.value;
@@ -104,12 +132,13 @@ contract AdAuction is IAdAuction {
     }
 
     function topUp() public payable {
-        if (block.timestamp < startAuctionTime) revert AuctionHasntStartedYet();
+        if (block.timestamp < startAuctionTime)
+            revert AdAuction__AuctionHasntStartedYet();
 
         Payer storage payer = addressToPayer[msg.sender];
-        if (payer.blockUsdBid == 0) revert NoSuchPayer();
+        if (payer.blockUsdBid == 0) revert AdAuction__NoSuchPayer();
         if (msg.value.convertEthToUsd(priceFeed) < payer.blockUsdBid)
-            revert PaidAmountIsLowerThanBid();
+            revert AdAuction__PaidAmountIsLowerThanBid();
 
         payer.ethBalance += msg.value;
         payer.withdrew = false;
@@ -123,46 +152,50 @@ contract AdAuction is IAdAuction {
     // todo: implement logic so you can withdraw not all but a part depending on how long your ad was up
 
     function withdrawBid(address receiver) external {
-        if (block.timestamp <= endAuctionTime) revert AuctionIsNotOverYet();
-        if (msg.sender == highestBidderAddr) revert HighestBidderCantWithdraw();
+        if (block.timestamp <= endAuctionTime)
+            revert AdAuction__AuctionIsNotOverYet();
+        if (msg.sender == highestBidderAddr)
+            revert AdAuction__HighestBidderCantWithdraw();
 
         Payer memory payer = addressToPayer[msg.sender];
-        if (payer.blockUsdBid == 0) revert NoSuchPayer();
-        if (payer.withdrew) revert BidderAlreadyWithdrew();
+        if (payer.blockUsdBid == 0) revert AdAuction__NoSuchPayer();
+        if (payer.withdrew) revert AdAuction__BidderAlreadyWithdrew();
 
         addressToPayer[msg.sender].withdrew = true;
 
         (bool res, ) = receiver.call{value: payer.ethBalance}(""); // convert to payable?
-        if (!res) revert BidWithdrawalFailed();
+        if (!res) revert AdAuction__BidWithdrawalFailed();
     }
 
     function withdraw(address receiver) external onlyOwner {
-        if (block.timestamp <= endAuctionTime) revert AuctionIsNotOverYet();
+        if (block.timestamp <= endAuctionTime)
+            revert AdAuction__AuctionIsNotOverYet();
 
         Payer storage winner = addressToPayer[highestBidderAddr];
-        if (winner.blockUsdBid == 0) revert NoWinnerInAuction();
+        if (winner.blockUsdBid == 0) revert AdAuction__NoWinnerInAuction();
 
         if (winner.ethBalance > 0) {
             chargeForAdCalc(winner);
         }
 
         if (address(this).balance < ownerBalanceAvailable)
-            revert AdAuctionBalanceIsTooLow(); // assert ?
+            revert AdAuction__AdAuctionBalanceIsTooLow(); // assert ?
         ownerBalanceAvailable = 0;
 
         (bool res, ) = receiver.call{value: ownerBalanceAvailable}("");
-        if (!res) revert OwnerWithdrawalFailed();
+        if (!res) revert AdAuction__OwnerWithdrawalFailed();
     }
 
     function chargeForAd() external onlyOwner {
-        if (block.timestamp <= endAuctionTime) revert AuctionIsNotOverYet();
+        if (block.timestamp <= endAuctionTime)
+            revert AdAuction__AuctionIsNotOverYet();
         Payer storage winner = addressToPayer[highestBidderAddr];
-        if (winner.blockUsdBid == 0) revert NoWinnerInAuction();
+        if (winner.blockUsdBid == 0) revert AdAuction__NoWinnerInAuction();
         chargeForAdCalc(winner);
     }
 
     function chargeForAdCalc(Payer storage winner) internal onlyOwner {
-        if (winner.ethBalance == 0) revert NoFundsToCharge();
+        if (winner.ethBalance == 0) revert AdAuction__NoFundsToCharge();
         assert(winner.timeLeft == 0); // Should never happen
 
         uint256 timeUsed = block.timestamp - endAuctionTime;
@@ -187,18 +220,5 @@ contract AdAuction is IAdAuction {
             winner.ethUsed += paidInEth;
             ownerBalanceAvailable += paidInEth;
         }
-    }
-
-    receive() external payable {
-        topUp();
-    }
-
-    fallback() external payable {
-        topUp();
-    }
-
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner();
-        _;
     }
 }
