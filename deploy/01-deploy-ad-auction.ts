@@ -28,7 +28,7 @@ module.exports = async ({
   const currentTimestamp = Math.floor(Date.now() / 1000)
   const args = [
     BigNumber.from(BigNumber.from(currentTimestamp)),
-    BigNumber.from(BigNumber.from(currentTimestamp + 200000)),
+    BigNumber.from(BigNumber.from(currentTimestamp + 3)),
     BigNumber.from(1),
     ethUsdPriceFeedAddress,
   ]

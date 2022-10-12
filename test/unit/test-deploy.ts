@@ -1,6 +1,6 @@
 import { ethers } from "hardhat"
 import { expect, assert } from "chai"
-import { AdAuction, AdAuction__factory } from "../typechain-types"
+import { AdAuction, AdAuction__factory } from "../../typechain-types"
 
 describe("AdAuction Deployment", () => {
   let AdAuctionFactory: AdAuction__factory

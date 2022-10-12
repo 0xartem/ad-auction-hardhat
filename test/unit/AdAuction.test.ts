@@ -1,7 +1,6 @@
 import { assert, expect } from "chai"
-import { BigNumber } from "ethers"
 import { deployments, ethers, getNamedAccounts } from "hardhat"
-import { AdAuction, MockV3Aggregator } from "../typechain-types"
+import { AdAuction, MockV3Aggregator } from "../../typechain-types"
 
 describe("AdAuction", async () => {
   let deployer: string
@@ -51,6 +50,8 @@ describe("AdAuction", async () => {
       await adAuction.bidOnAd("Joy", "https://joy.com", "Hey Joy", 5, {
         value: oneEther,
       })
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      console.log("===========================================")
     })
 
     // todo: finish
@@ -66,6 +67,8 @@ describe("AdAuction", async () => {
       // Act
       const txResponse = await adAuction.withdraw(deployer)
       const txReceipt = await txResponse.wait(1)
+      const { gasUsed, effectiveGasPrice } = txReceipt
+      const gasCost = gasUsed.mul(effectiveGasPrice)
 
       const endingAuctionBalance = await adAuction.provider.getBalance(
         adAuction.address
@@ -75,7 +78,7 @@ describe("AdAuction", async () => {
       )
 
       // Assert
-      //   assert.equal(endingAuctionBalance, BigNumber.from(0))
+      //   assert.equal(endingAuctionBalance.toString(), "0")
       //   assert.equal(
       //     startingAuctionBalance.add(deployerStartingBalance).toString(),
       //     endingDeployerBalance.add(gasCost).toString()

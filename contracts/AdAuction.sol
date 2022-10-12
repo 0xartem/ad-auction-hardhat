@@ -196,7 +196,7 @@ contract AdAuction is IAdAuction {
 
     function chargeForAdCalc(Payer storage winner) internal onlyOwner {
         if (winner.ethBalance == 0) revert AdAuction__NoFundsToCharge();
-        assert(winner.timeLeft == 0); // Should never happen
+        // assert(winner.timeLeft == 0); // Should never happen
 
         uint256 timeUsed = block.timestamp - endAuctionTime;
 
