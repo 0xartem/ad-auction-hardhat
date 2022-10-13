@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IAdAuction} from "./IAdAuction.sol";
 import {PriceOracle} from "./PriceOracle.sol";
+import "hardhat/console.sol";
 
 /** @title A contract for ad auction
  *  @author artem0x
@@ -40,7 +41,7 @@ contract AdAuction is IAdAuction {
     struct Payer {
         uint256 ethBalance;
         uint256 ethUsed;
-        uint256 blockUsdBid;
+        uint256 blockBid;
         uint256 timeLeft;
         string name;
         string imageUrl;
@@ -52,7 +53,7 @@ contract AdAuction is IAdAuction {
 
     uint256 public immutable startAuctionTime;
     uint256 public immutable endAuctionTime;
-    uint256 public immutable minimumBlockUsdBid;
+    uint256 public immutable minimumBlockBid;
 
     uint256 public ownerBalanceAvailable;
     address public highestBidderAddr;
@@ -62,7 +63,7 @@ contract AdAuction is IAdAuction {
 
     event OnBid(
         address indexed payer,
-        uint256 indexed blockUsdBid,
+        uint256 indexed blockBid,
         uint256 indexed ethBalance,
         uint256 ethPaid,
         uint256 timeLeft
@@ -86,7 +87,7 @@ contract AdAuction is IAdAuction {
     constructor(
         uint256 _startAuctionTime,
         uint256 _endAuctionTime,
-        uint256 _minimumBlockUsdBid,
+        uint256 _minimumBlockBid,
         address _priceFeedAddress
     ) {
         owner = msg.sender;
@@ -96,8 +97,7 @@ contract AdAuction is IAdAuction {
 
         startAuctionTime = _startAuctionTime;
         endAuctionTime = _endAuctionTime;
-        minimumBlockUsdBid = _minimumBlockUsdBid;
-        //TODO: Multiply when needs calculations: minimumBlockUsdBid = _minimumBlockUsdBid * 1e18;
+        minimumBlockBid = _minimumBlockBid;
 
         priceFeed = AggregatorV3Interface(_priceFeedAddress);
     }
@@ -115,42 +115,44 @@ contract AdAuction is IAdAuction {
      *  @param _name is a name of the ad
      *  @param _imageUrl is a url to a resource that will be displayed in the ad
      *  @param _text is the text that will be displayed along with the resource
-     *  @param _blockUsdBid the amount you want to pay for 1 block (12 sec) in USD
+     *  @param _blockBid the amount you want to pay for 1 block (12 sec) in in wei
      */
     function bidOnAd(
         string calldata _name,
         string calldata _imageUrl,
         string calldata _text,
-        uint256 _blockUsdBid
+        uint256 _blockBid
     ) external payable {
         if (block.timestamp < startAuctionTime)
             revert AdAuction__AuctionHasntStartedYet();
         if (block.timestamp > endAuctionTime) revert AdAuction__AuctionIsOver();
 
-        if (_blockUsdBid < minimumBlockUsdBid)
+        if (_blockBid < minimumBlockBid)
             revert AdAuction__BidIsLowerThanMinimum();
-        if (_blockUsdBid <= addressToPayer[highestBidderAddr].blockUsdBid)
+        if (_blockBid <= addressToPayer[highestBidderAddr].blockBid)
             revert AdAuction__HigherBidIsAvailable();
-        if (msg.value.convertEthToUsd(priceFeed) < _blockUsdBid)
-            revert AdAuction__PaidAmountIsLowerThanBid();
+
+        if (msg.value < _blockBid) revert AdAuction__PaidAmountIsLowerThanBid();
+
+        uint256 usdBid = _blockBid.convertEthToUsd(priceFeed);
+        console.log("USD bid %i", usdBid);
 
         Payer storage payer = addressToPayer[msg.sender];
         payer.ethBalance += msg.value;
-        payer.blockUsdBid = _blockUsdBid;
+        payer.blockBid = _blockBid;
         payer.name = _name;
         payer.imageUrl = _imageUrl;
         payer.text = _text;
         payer.withdrew = false;
-
         highestBidderAddr = msg.sender;
 
-        uint256 usdBalance = payer.ethBalance.convertEthToUsd(priceFeed);
-        uint256 timeLeft = (usdBalance / _blockUsdBid) * 12; // 12 secs per block
+        console.log("ETH balance %i", payer.ethBalance);
+        uint256 timeLeft = (payer.ethBalance / _blockBid) * 12; // 12 secs per block
         payer.timeLeft = timeLeft;
 
         emit OnBid(
             msg.sender,
-            _blockUsdBid,
+            _blockBid,
             payer.ethBalance,
             msg.value,
             timeLeft
@@ -162,15 +164,14 @@ contract AdAuction is IAdAuction {
             revert AdAuction__AuctionHasntStartedYet();
 
         Payer storage payer = addressToPayer[msg.sender];
-        if (payer.blockUsdBid == 0) revert AdAuction__NoSuchPayer();
-        if (msg.value.convertEthToUsd(priceFeed) < payer.blockUsdBid)
+        if (payer.blockBid == 0) revert AdAuction__NoSuchPayer();
+        if (msg.value < payer.blockBid)
             revert AdAuction__PaidAmountIsLowerThanBid();
 
         payer.ethBalance += msg.value;
         payer.withdrew = false;
 
-        uint256 usdBalance = payer.ethBalance.convertEthToUsd(priceFeed);
-        uint256 timeLeft = (usdBalance / payer.blockUsdBid) * 12; // 12 secs per block
+        uint256 timeLeft = (payer.ethBalance / payer.blockBid) * 12; // 12 secs per block
         payer.timeLeft = timeLeft;
 
         emit OnTopUp(msg.sender, payer.ethBalance, msg.value, timeLeft);
@@ -187,7 +188,7 @@ contract AdAuction is IAdAuction {
             revert AdAuction__HighestBidderCantWithdraw();
 
         Payer memory payer = addressToPayer[msg.sender];
-        if (payer.blockUsdBid == 0) revert AdAuction__NoSuchPayer();
+        if (payer.blockBid == 0) revert AdAuction__NoSuchPayer();
         if (payer.withdrew) revert AdAuction__BidderAlreadyWithdrew();
 
         addressToPayer[msg.sender].withdrew = true;
@@ -203,7 +204,7 @@ contract AdAuction is IAdAuction {
             revert AdAuction__AuctionIsNotOverYet();
 
         Payer storage winner = addressToPayer[highestBidderAddr];
-        if (winner.blockUsdBid == 0) revert AdAuction__NoWinnerInAuction();
+        if (winner.blockBid == 0) revert AdAuction__NoWinnerInAuction();
 
         if (winner.ethBalance > 0) {
             chargeForAdCalc(winner);
@@ -223,7 +224,7 @@ contract AdAuction is IAdAuction {
         if (block.timestamp <= endAuctionTime)
             revert AdAuction__AuctionIsNotOverYet();
         Payer storage winner = addressToPayer[highestBidderAddr];
-        if (winner.blockUsdBid == 0) revert AdAuction__NoWinnerInAuction();
+        if (winner.blockBid == 0) revert AdAuction__NoWinnerInAuction();
         chargeForAdCalc(winner);
     }
 
@@ -240,16 +241,10 @@ contract AdAuction is IAdAuction {
             winner.timeLeft = 0;
         } else {
             uint256 blocksUsed = timeUsed / 12;
-            uint256 paidInUsd = blocksUsed * winner.blockUsdBid;
-            uint256 oldUsdBalance = winner.ethBalance.convertEthToUsd(
-                priceFeed
-            );
-            uint256 newUsdBalance = oldUsdBalance - paidInUsd;
+            uint256 paidInEth = blocksUsed * winner.blockBid;
 
             winner.timeLeft = winner.timeLeft - timeUsed;
-
-            winner.ethBalance = newUsdBalance.convertUsdToEth(priceFeed);
-            uint256 paidInEth = paidInUsd.convertUsdToEth(priceFeed);
+            winner.ethBalance = winner.ethBalance - paidInEth;
             winner.ethUsed += paidInEth;
             ownerBalanceAvailable += paidInEth;
         }
