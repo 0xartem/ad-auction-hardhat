@@ -60,6 +60,24 @@ contract AdAuction is IAdAuction {
 
     AggregatorV3Interface public priceFeed;
 
+    event OnBid(
+        address indexed payer,
+        uint256 indexed blockUsdBid,
+        uint256 indexed ethBalance,
+        uint256 ethPaid,
+        uint256 timeLeft
+    );
+
+    event OnTopUp(
+        address indexed payer,
+        uint256 indexed ethBalance,
+        uint256 ethPaid,
+        uint256 timeLeft
+    );
+
+    event BidWithdrawn(address indexed payer, uint256 indexed ethAmount);
+    event BalanceWithdrawn(address indexed payer, uint256 indexed ethAmount);
+
     modifier onlyOwner() {
         if (msg.sender != owner) revert AdAuction__NotOwner();
         _;
@@ -129,6 +147,14 @@ contract AdAuction is IAdAuction {
         uint256 usdBalance = payer.ethBalance.convertEthToUsd(priceFeed);
         uint256 timeLeft = (usdBalance / _blockUsdBid) * 12; // 12 secs per block
         payer.timeLeft = timeLeft;
+
+        emit OnBid(
+            msg.sender,
+            _blockUsdBid,
+            payer.ethBalance,
+            msg.value,
+            timeLeft
+        );
     }
 
     function topUp() public payable {
@@ -146,10 +172,13 @@ contract AdAuction is IAdAuction {
         uint256 usdBalance = payer.ethBalance.convertEthToUsd(priceFeed);
         uint256 timeLeft = (usdBalance / payer.blockUsdBid) * 12; // 12 secs per block
         payer.timeLeft = timeLeft;
+
+        emit OnTopUp(msg.sender, payer.ethBalance, msg.value, timeLeft);
     }
 
     // todo: the next bidder will be used if the first one runs out of funds
     // todo: implement logic so you can withdraw not all but a part depending on how long your ad was up
+    // todo: automatically execute selecting a winner (once or ongoing)
 
     function withdrawBid(address receiver) external {
         if (block.timestamp <= endAuctionTime)
@@ -163,8 +192,10 @@ contract AdAuction is IAdAuction {
 
         addressToPayer[msg.sender].withdrew = true;
 
-        (bool res, ) = receiver.call{value: payer.ethBalance}(""); // convert to payable?
+        (bool res, ) = receiver.call{value: payer.ethBalance}(""); // todo: convert to payable?
         if (!res) revert AdAuction__BidWithdrawalFailed();
+
+        emit BidWithdrawn(receiver, payer.ethBalance);
     }
 
     function withdraw(address receiver) external onlyOwner {
@@ -184,9 +215,11 @@ contract AdAuction is IAdAuction {
 
         (bool res, ) = receiver.call{value: ownerBalanceAvailable}("");
         if (!res) revert AdAuction__OwnerWithdrawalFailed();
+
+        emit BalanceWithdrawn(receiver, ownerBalanceAvailable);
     }
 
-    function chargeForAd() external onlyOwner {
+    function chargeForAd() external {
         if (block.timestamp <= endAuctionTime)
             revert AdAuction__AuctionIsNotOverYet();
         Payer storage winner = addressToPayer[highestBidderAddr];
@@ -194,7 +227,7 @@ contract AdAuction is IAdAuction {
         chargeForAdCalc(winner);
     }
 
-    function chargeForAdCalc(Payer storage winner) internal onlyOwner {
+    function chargeForAdCalc(Payer storage winner) internal {
         if (winner.ethBalance == 0) revert AdAuction__NoFundsToCharge();
         // assert(winner.timeLeft == 0); // Should never happen
 
