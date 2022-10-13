@@ -20,6 +20,7 @@
     "@types/mocha": "^10.0.0",
     "@types/node": "^18.7.23",
     "chai": "^4.2.0",
+    "dotenv": "^16.0.2",
     "ethers": "^5.7.1",
     "hardhat": "^2.11.2",
     "hardhat-deploy": "^0.11.18",
@@ -30,8 +31,7 @@
     "solidity-coverage": "^0.8.2",
     "ts-node": "^10.9.1",
     "typechain": "^8.1.0",
-    "typescript": "^4.8.4",
-    "dotenv": "^16.0.2"
+    "typescript": "^4.8.4"
   },
   "scripts": {
     "test": "yarn hardhat test",
