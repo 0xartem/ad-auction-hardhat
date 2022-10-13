@@ -15,6 +15,11 @@ import "hardhat/console.sol";
 contract AdAuction is IAdAuction {
     using PriceOracle for uint256;
 
+    enum AdAuctionState {
+        AUCTION_OPEN,
+        AUCTION_CLOSED
+    }
+
     error AdAuction__NotOwner();
 
     error AdAuction__InvalidAuctionPeriod();
@@ -49,6 +54,7 @@ contract AdAuction is IAdAuction {
         bool withdrew;
     }
 
+    AdAuctionState public state;
     address public immutable owner;
 
     uint256 public immutable startAuctionTime;
@@ -92,8 +98,18 @@ contract AdAuction is IAdAuction {
     ) {
         owner = msg.sender;
 
-        if (_endAuctionTime <= _startAuctionTime)
+        if (
+            _endAuctionTime <= _startAuctionTime ||
+            block.timestamp >= _endAuctionTime
+        ) {
             revert AdAuction__InvalidAuctionPeriod();
+        }
+
+        if (block.timestamp >= _startAuctionTime) {
+            state = AdAuctionState.AUCTION_OPEN;
+        } else {
+            state = AdAuctionState.AUCTION_CLOSED;
+        }
 
         startAuctionTime = _startAuctionTime;
         endAuctionTime = _endAuctionTime;
@@ -126,6 +142,8 @@ contract AdAuction is IAdAuction {
         if (block.timestamp < startAuctionTime)
             revert AdAuction__AuctionHasntStartedYet();
         if (block.timestamp > endAuctionTime) revert AdAuction__AuctionIsOver();
+
+        state = AdAuctionState.AUCTION_OPEN;
 
         if (_blockBid < minimumBlockBid)
             revert AdAuction__BidIsLowerThanMinimum();
@@ -163,6 +181,8 @@ contract AdAuction is IAdAuction {
         if (block.timestamp < startAuctionTime)
             revert AdAuction__AuctionHasntStartedYet();
 
+        state = AdAuctionState.AUCTION_OPEN;
+
         Payer storage payer = addressToPayer[msg.sender];
         if (payer.blockBid == 0) revert AdAuction__NoSuchPayer();
         if (msg.value < payer.blockBid)
@@ -187,6 +207,8 @@ contract AdAuction is IAdAuction {
         if (msg.sender == highestBidderAddr)
             revert AdAuction__HighestBidderCantWithdraw();
 
+        state = AdAuctionState.AUCTION_CLOSED;
+
         Payer memory payer = addressToPayer[msg.sender];
         if (payer.blockBid == 0) revert AdAuction__NoSuchPayer();
         if (payer.withdrew) revert AdAuction__BidderAlreadyWithdrew();
@@ -202,6 +224,8 @@ contract AdAuction is IAdAuction {
     function withdraw(address receiver) external onlyOwner {
         if (block.timestamp <= endAuctionTime)
             revert AdAuction__AuctionIsNotOverYet();
+
+        state = AdAuctionState.AUCTION_CLOSED;
 
         Payer storage winner = addressToPayer[highestBidderAddr];
         if (winner.blockBid == 0) revert AdAuction__NoWinnerInAuction();
@@ -223,6 +247,9 @@ contract AdAuction is IAdAuction {
     function chargeForAd() external {
         if (block.timestamp <= endAuctionTime)
             revert AdAuction__AuctionIsNotOverYet();
+
+        state = AdAuctionState.AUCTION_CLOSED;
+
         Payer storage winner = addressToPayer[highestBidderAddr];
         if (winner.blockBid == 0) revert AdAuction__NoWinnerInAuction();
         chargeForAdCalc(winner);
