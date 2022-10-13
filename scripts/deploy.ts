@@ -1,39 +1,33 @@
 import { ethers, network } from "hardhat"
 import { verify } from "../utils/verify"
+import { developmentChains, networkConfig } from "../helper-hardhat-config"
+import { deployAdAuction } from "./deploy-ad-auction"
+import { AdAuction } from "../typechain-types"
 
 async function main() {
-  const PriceOracleLibFactory = await ethers.getContractFactory("PriceOracle")
-  console.log("Deploying PriceOracle lib...")
-  const priceOracle = await PriceOracleLibFactory.deploy()
-  await priceOracle.deployed()
-  console.log(`Deployed PriceOracle: ${priceOracle.address}`)
-
-  const AdAuctionFactory = await ethers.getContractFactory("AdAuction", {
-    libraries: {
-      PriceOracle: priceOracle.address,
-    },
-  })
-
   const height = await ethers.provider.getBlockNumber()
   const block = await ethers.provider.getBlock(height)
   console.log(`Current block is ${block}`)
 
   const startAuctionTimestamp = block.timestamp
   const endAuctionTimestamp = startAuctionTimestamp + 10000
-  const minBlockUsdBid = 100
-  console.log(
-    `Start aucion time: ${startAuctionTimestamp}; End auction time: ${endAuctionTimestamp}`
-  )
+  const minBlockBid = 100
 
-  console.log("Deploying Ad Auction...")
-  const adAuction = await AdAuctionFactory.deploy(
+  let ethUsdPriceFeedAddress
+  if (developmentChains.includes(network.name)) {
+    ethUsdPriceFeedAddress = "0x0000000000000000000000000000000000000000"
+  } else {
+    ethUsdPriceFeedAddress = networkConfig[chainId]["ethUsdPriceFeed"]
+  }
+
+  const adAuction: AdAuction = await deployAdAuction(
     startAuctionTimestamp,
     endAuctionTimestamp,
-    minBlockUsdBid
+    minBlockBid,
+    ethUsdPriceFeedAddress
   )
-  await adAuction.deployed()
-  console.log(`Deployed Ad Auction to: ${adAuction.address}`)
 
+  console.log("Network config:")
   console.log(network.config)
   if (network.config.chainId === 420 && process.env.ETHERSCAN_API_KEY) {
     console.log("Waiting for transaction confirmations...")
@@ -41,20 +35,9 @@ async function main() {
     await verify(adAuction.address, [
       startAuctionTimestamp,
       endAuctionTimestamp,
-      minBlockUsdBid,
+      minBlockBid,
     ])
   }
-
-  const txResponse = await adAuction.bidOnAd(
-    "Joe",
-    "https://i.imgflip.com/30b1gx.jpg",
-    "Wait for it...",
-    200
-  )
-  await txResponse.wait(1)
-
-  const highestBidderAddr = await adAuction.highestBidderAddr()
-  console.log(`Highest bidder is ${highestBidderAddr}`)
 }
 
 main()
