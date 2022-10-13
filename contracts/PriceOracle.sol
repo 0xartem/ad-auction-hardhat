@@ -11,14 +11,14 @@ library PriceOracle {
         // AggregatorV3Interface priceFeed = AggregatorV3Interface(
         //     0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e
         // ); // Goerli
-        uint8 decimals = priceFeed.decimals();
-        require(
-            decimals > 0,
-            "AdAuction::getPrice: decimals in the price oracle are wrong"
-        );
+        // uint8 decimals = priceFeed.decimals();
+        // require(
+        //     decimals > 0,
+        //     "AdAuction::getPrice: decimals in the price oracle are wrong"
+        // );
 
         (, int256 usdPrice, , , ) = priceFeed.latestRoundData();
-        return uint256(usdPrice) * 1**(18 - decimals);
+        return uint256(usdPrice * 1e10);
     }
 
     function convertEthToUsd(uint256 ethAmount, AggregatorV3Interface priceFeed)
@@ -27,17 +27,17 @@ library PriceOracle {
         returns (uint256)
     {
         uint256 ethPrice = getPrice(priceFeed);
-        uint256 usdAmount = (ethAmount * ethPrice) / 1e18;
-        return usdAmount;
+        uint256 ethAmountInUsd = (ethAmount * ethPrice) / 1e18;
+        return ethAmountInUsd;
     }
 
-    function convertUsdToEth(uint256 usd, AggregatorV3Interface priceFeed)
+    function convertUsdToEth(uint256 usdAmount, AggregatorV3Interface priceFeed)
         public
         view
         returns (uint256)
     {
         uint256 ethPrice = getPrice(priceFeed);
-        uint256 ethAmount = (usd / ethPrice); //todo: check math
+        uint256 ethAmount = (usdAmount / ethPrice); //todo: check math
         return ethAmount;
     }
 }
