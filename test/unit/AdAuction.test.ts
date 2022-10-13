@@ -31,6 +31,7 @@ describe("AdAuction", async () => {
         currentTimestamp + 1000,
         currentTimestamp + 1010,
         0,
+        10,
         mockV3Aggregator.address
       )
 
@@ -48,6 +49,7 @@ describe("AdAuction", async () => {
         currentTimestamp - 1000,
         currentTimestamp - 990,
         0,
+        10,
         mockV3Aggregator.address
       )
 
@@ -120,6 +122,7 @@ describe("AdAuction", async () => {
         currentTimestamp + 1000,
         currentTimestamp + 1010,
         0,
+        10,
         mockV3Aggregator.address
       )
 

@@ -5,6 +5,7 @@ export async function deployAdAuction(
   startAuctionTimestamp: number,
   endAuctionTimestamp: number,
   minBlockBid: number,
+  chargeInterval: number,
   ethUsdPriceFeedAddress: string
 ): Promise<AdAuction> {
   const PriceOracleLibFactory = await ethers.getContractFactory("PriceOracle")
@@ -28,6 +29,7 @@ export async function deployAdAuction(
     startAuctionTimestamp,
     endAuctionTimestamp,
     minBlockBid,
+    chargeInterval,
     ethUsdPriceFeedAddress
   )) as AdAuction
   await adAuction.deployed()

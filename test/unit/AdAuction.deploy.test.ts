@@ -21,6 +21,7 @@ describe("AdAuction Deployment", () => {
       0,
       1,
       1,
+      10,
       "0x0000000000000000000000000000000000000000"
     )
     await adAuction.deployed()
@@ -32,6 +33,7 @@ describe("AdAuction Deployment", () => {
         1,
         0,
         1,
+        10,
         "0x0000000000000000000000000000000000000000"
       )
     ).to.be.revertedWithCustomError(

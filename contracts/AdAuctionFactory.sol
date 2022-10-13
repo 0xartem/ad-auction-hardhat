@@ -11,12 +11,14 @@ contract AdAuctionFactory {
         uint256 _startAuctionTime,
         uint256 _endAuctionTime,
         uint256 _minimumBlockUsdBid,
+        uint256 _chargeInterval,
         address priceFeedAddress
     ) public {
         AdAuction adAuction = new AdAuction(
             _startAuctionTime,
             _endAuctionTime,
             _minimumBlockUsdBid,
+            _chargeInterval,
             priceFeedAddress
         );
         adAuctionArray.push(adAuction);

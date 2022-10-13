@@ -3,23 +3,20 @@
 pragma solidity ^0.8.0;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import {IAdAuction} from "./IAdAuction.sol";
 import {PriceOracle} from "./PriceOracle.sol";
 import "hardhat/console.sol";
 
 /** @title A contract for ad auction
  *  @author artem0x
- *  @notice This contract is to sell anyh ad to a highest bidder
- *  @dev Use bidOnAd and then topUp as needed
+ *  @notice This contract is to sell any ad to a highest bidder
+ *  @dev Use bidOnAd to bid on the ad board and then topUp as needed
  */
-contract AdAuction is IAdAuction {
+contract AdAuction is IAdAuction, AutomationCompatibleInterface {
     using PriceOracle for uint256;
 
-    enum AdAuctionState {
-        AUCTION_OPEN,
-        AUCTION_CLOSED
-    }
-
+    /// Type declarations
     error AdAuction__NotOwner();
 
     error AdAuction__InvalidAuctionPeriod();
@@ -43,6 +40,11 @@ contract AdAuction is IAdAuction {
     error AdAuction__NoWinnerInAuction();
     error AdAuction__NoFundsToCharge();
 
+    error AdAuction__UpkeepNotNeeded(
+        uint256 currentBalance,
+        address highestBidder
+    );
+
     struct Payer {
         uint256 ethBalance;
         uint256 ethUsed;
@@ -54,12 +56,14 @@ contract AdAuction is IAdAuction {
         bool withdrew;
     }
 
-    AdAuctionState public state;
+    /// State variables
     address public immutable owner;
 
     uint256 public immutable startAuctionTime;
     uint256 public immutable endAuctionTime;
     uint256 public immutable minimumBlockBid;
+    uint256 private immutable chargeInterval;
+    uint256 private lastTimestamp;
 
     uint256 public ownerBalanceAvailable;
     address public highestBidderAddr;
@@ -67,6 +71,7 @@ contract AdAuction is IAdAuction {
 
     AggregatorV3Interface public priceFeed;
 
+    /// Events
     event OnBid(
         address indexed payer,
         uint256 indexed blockBid,
@@ -85,35 +90,31 @@ contract AdAuction is IAdAuction {
     event BidWithdrawn(address indexed payer, uint256 indexed ethAmount);
     event BalanceWithdrawn(address indexed payer, uint256 indexed ethAmount);
 
+    /// Modifiers
     modifier onlyOwner() {
         if (msg.sender != owner) revert AdAuction__NotOwner();
         _;
     }
 
+    /// Functions
     constructor(
         uint256 _startAuctionTime,
         uint256 _endAuctionTime,
         uint256 _minimumBlockBid,
+        uint256 _chargeInterval,
         address _priceFeedAddress
     ) {
         owner = msg.sender;
 
-        if (
-            _endAuctionTime <= _startAuctionTime ||
-            block.timestamp >= _endAuctionTime
-        ) {
+        if (_endAuctionTime <= _startAuctionTime) {
             revert AdAuction__InvalidAuctionPeriod();
-        }
-
-        if (block.timestamp >= _startAuctionTime) {
-            state = AdAuctionState.AUCTION_OPEN;
-        } else {
-            state = AdAuctionState.AUCTION_CLOSED;
         }
 
         startAuctionTime = _startAuctionTime;
         endAuctionTime = _endAuctionTime;
         minimumBlockBid = _minimumBlockBid;
+        chargeInterval = _chargeInterval;
+        lastTimestamp = _endAuctionTime;
 
         priceFeed = AggregatorV3Interface(_priceFeedAddress);
     }
@@ -142,8 +143,6 @@ contract AdAuction is IAdAuction {
         if (block.timestamp < startAuctionTime)
             revert AdAuction__AuctionHasntStartedYet();
         if (block.timestamp > endAuctionTime) revert AdAuction__AuctionIsOver();
-
-        state = AdAuctionState.AUCTION_OPEN;
 
         if (_blockBid < minimumBlockBid)
             revert AdAuction__BidIsLowerThanMinimum();
@@ -181,8 +180,6 @@ contract AdAuction is IAdAuction {
         if (block.timestamp < startAuctionTime)
             revert AdAuction__AuctionHasntStartedYet();
 
-        state = AdAuctionState.AUCTION_OPEN;
-
         Payer storage payer = addressToPayer[msg.sender];
         if (payer.blockBid == 0) revert AdAuction__NoSuchPayer();
         if (msg.value < payer.blockBid)
@@ -207,8 +204,6 @@ contract AdAuction is IAdAuction {
         if (msg.sender == highestBidderAddr)
             revert AdAuction__HighestBidderCantWithdraw();
 
-        state = AdAuctionState.AUCTION_CLOSED;
-
         Payer memory payer = addressToPayer[msg.sender];
         if (payer.blockBid == 0) revert AdAuction__NoSuchPayer();
         if (payer.withdrew) revert AdAuction__BidderAlreadyWithdrew();
@@ -224,8 +219,6 @@ contract AdAuction is IAdAuction {
     function withdraw(address receiver) external onlyOwner {
         if (block.timestamp <= endAuctionTime)
             revert AdAuction__AuctionIsNotOverYet();
-
-        state = AdAuctionState.AUCTION_CLOSED;
 
         Payer storage winner = addressToPayer[highestBidderAddr];
         if (winner.blockBid == 0) revert AdAuction__NoWinnerInAuction();
@@ -248,11 +241,57 @@ contract AdAuction is IAdAuction {
         if (block.timestamp <= endAuctionTime)
             revert AdAuction__AuctionIsNotOverYet();
 
-        state = AdAuctionState.AUCTION_CLOSED;
+        if (highestBidderAddr == address(0))
+            revert AdAuction__NoWinnerInAuction();
+        chargeForAdCalc(addressToPayer[highestBidderAddr]);
+    }
 
-        Payer storage winner = addressToPayer[highestBidderAddr];
-        if (winner.blockBid == 0) revert AdAuction__NoWinnerInAuction();
-        chargeForAdCalc(winner);
+    /**
+     * @dev This function is called by the Chainlink Automation nodes
+     * they will trigger the performUpkeep if the following conditions are true
+     * 1. The endAuctionTime has to pass the current timestamp
+     * It means the auction is over and need to be moved to the AUCTION_CLOSED state
+     * 2 If the auction is closed, then we need to check if the inverval passed to charge the payer if
+     * 3 The winner is available
+     * 4 The balance of the contract is > 0
+     */
+    function checkUpkeep(
+        bytes memory /* checkData */
+    )
+        public
+        view
+        override
+        returns (
+            bool upkeepNeeded,
+            bytes memory /* performData */
+        )
+    {
+        bool hasWinner = (highestBidderAddr != address(0));
+        bool hasBalance = address(this).balance > 0;
+        bool isAuctionClosed = (block.timestamp > endAuctionTime);
+        bool intervalPassed = false;
+        if (isAuctionClosed) {
+            intervalPassed = ((block.timestamp - lastTimestamp) >
+                chargeInterval);
+        }
+        upkeepNeeded = (hasWinner &&
+            hasBalance &&
+            isAuctionClosed &&
+            intervalPassed);
+    }
+
+    function performUpkeep(
+        bytes calldata /* performData */
+    ) external override {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert AdAuction__UpkeepNotNeeded(
+                address(this).balance,
+                highestBidderAddr
+            );
+        }
+
+        chargeForAdCalc(addressToPayer[highestBidderAddr]);
     }
 
     function chargeForAdCalc(Payer storage winner) internal {
@@ -275,5 +314,7 @@ contract AdAuction is IAdAuction {
             winner.ethUsed += paidInEth;
             ownerBalanceAvailable += paidInEth;
         }
+        // Reset the timestamp so we know when the last time charge happened
+        lastTimestamp = block.timestamp;
     }
 }

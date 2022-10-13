@@ -12,6 +12,7 @@ async function main() {
   const startAuctionTimestamp = block.timestamp
   const endAuctionTimestamp = startAuctionTimestamp + 10000
   const minBlockBid = 100
+  const chargeInterval = 30
 
   let ethUsdPriceFeedAddress
   if (developmentChains.includes(network.name)) {
@@ -24,6 +25,7 @@ async function main() {
     startAuctionTimestamp,
     endAuctionTimestamp,
     minBlockBid,
+    chargeInterval,
     ethUsdPriceFeedAddress
   )
 

@@ -30,6 +30,7 @@ module.exports = async ({
     BigNumber.from(BigNumber.from(currentTimestamp)),
     BigNumber.from(BigNumber.from(currentTimestamp + 10)),
     BigNumber.from(1),
+    BigNumber.from(30),
     ethUsdPriceFeedAddress,
   ]
   const adAuction = await deploy("AdAuction", {
