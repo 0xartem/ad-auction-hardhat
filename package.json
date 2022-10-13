@@ -39,6 +39,8 @@
     "lint": "yarn solhint contracts/*.sol",
     "lint:fix": "yarn solhint contracts/*.sol --fix",
     "format": "yarn prettier --write .",
-    "coverage": "yarn hardhat coverage"
+    "coverage": "yarn hardhat coverage",
+    "deploy:script:hardhat": "yarn hardhat run scripts/deploy.ts",
+    "deploy:plugin:hardhat": "yarn hardhat deploy"
   }
 }
