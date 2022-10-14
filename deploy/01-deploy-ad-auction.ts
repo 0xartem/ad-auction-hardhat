@@ -1,7 +1,7 @@
 import { developmentChains, networkConfig } from "../helper-hardhat-config"
 import { network } from "hardhat"
 import { verify } from "../utils/verify"
-import { BigNumber } from "ethers"
+import { BigNumber, ethers } from "ethers"
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 
 module.exports = async ({
@@ -26,11 +26,14 @@ module.exports = async ({
   }
 
   const currentTimestamp = Math.floor(Date.now() / 1000)
+  const auctionLength = networkConfig[chainId]["auctionLength"] || 10
+  const minBlockBid = networkConfig[chainId]["minimumBlockBid"] || 1
+  const chargeInterval = networkConfig[chainId]["chargeInterval"] || 5
   const args = [
     BigNumber.from(BigNumber.from(currentTimestamp)),
-    BigNumber.from(BigNumber.from(currentTimestamp + 10)),
-    BigNumber.from(1),
-    BigNumber.from(30),
+    BigNumber.from(BigNumber.from(currentTimestamp + auctionLength)),
+    BigNumber.from(minBlockBid),
+    BigNumber.from(chargeInterval),
     ethUsdPriceFeedAddress,
   ]
   const adAuction = await deploy("AdAuction", {

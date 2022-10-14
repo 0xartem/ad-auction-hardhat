@@ -1,13 +1,7 @@
-# Sample Hardhat Project
+TODO
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
-
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.js
-```
+- Finish writing unit-tests
+- Write staging tests
+- Re-deploy to Goerli with long auction length
+- Make it chargable right away after the auction started, or configurable if it's possible to charge before the auction is over
+- Register Upkeep trigger on Chainlink

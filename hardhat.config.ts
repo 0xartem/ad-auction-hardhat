@@ -20,16 +20,25 @@ module.exports = {
     goerli: {
       url: GOERLI_RPC_URL,
       accounts: [PRIVATE_KEY],
-      chainId: 420,
+      chainId: 5,
       blockConfirmations: 6,
+      saveDeployments: true,
     },
     localhost: {
       url: "http://localhost:8545",
       chainId: 31337,
     },
+    hardhat: {
+      chainId: 31337,
+    },
+  },
+  etherscan: {
+    apiKey: {
+      goerli: ETHERSCAN_API_KEY,
+    },
   },
   gasReporter: {
-    enabled: false,
+    enabled: true,
     outputFile: "gas-report.txt",
     noColors: true,
     currency: "USD",

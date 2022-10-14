@@ -1,3 +1,4 @@
+// Manual script deployment
 import { ethers, network } from "hardhat"
 import { verify } from "../utils/verify"
 import { developmentChains, networkConfig } from "../helper-hardhat-config"
@@ -31,7 +32,7 @@ async function main() {
 
   console.log("Network config:")
   console.log(network.config)
-  if (network.config.chainId === 420 && process.env.ETHERSCAN_API_KEY) {
+  if (network.config.chainId === 5 && process.env.ETHERSCAN_API_KEY) {
     console.log("Waiting for transaction confirmations...")
     await adAuction.deployTransaction.wait(6)
     await verify(adAuction.address, [

@@ -40,7 +40,9 @@
     "lint:fix": "yarn solhint contracts/*.sol --fix",
     "format": "yarn prettier --write .",
     "coverage": "yarn hardhat coverage",
-    "deploy:script:hardhat": "yarn hardhat run scripts/deploy.ts",
-    "deploy:plugin:hardhat": "yarn hardhat deploy"
+    "deploy:hardhat:script": "yarn hardhat run scripts/deploy.ts",
+    "deploy:hardhat": "yarn hardhat deploy",
+    "deploy:local": "yarn hardhat deploy --network localhost",
+    "deploy:goerli": "yarn hardhat deploy --network goerli"
   }
 }
