@@ -13,7 +13,12 @@ developmentChains.includes(network.name)
       })
 
       it("allows to bid and withdraw", async () => {
-        // bidOnAd
+        // bidOnAd 1
+        // bidOnAd 2
+        // topUp 1
+        // performUpkeep
         // withdraw
+        // withdrawBid (loser)
+        // topUp2
       })
     })

@@ -1,10 +1,9 @@
 import { assert, expect } from "chai"
-import { deployments, ethers, getNamedAccounts } from "hardhat"
-import { before } from "mocha"
+import { deployments, ethers, getNamedAccounts, network } from "hardhat"
 import { deployAdAuction } from "../../scripts/deploy-ad-auction"
 import { AdAuction, MockV3Aggregator } from "../../typechain-types"
 
-describe("AdAuction", async () => {
+describe("AdAuction", () => {
   let deployer: string
   let adAuction: AdAuction
   let mockV3Aggregator: MockV3Aggregator
@@ -17,14 +16,14 @@ describe("AdAuction", async () => {
     mockV3Aggregator = await ethers.getContract("MockV3Aggregator", deployer)
   })
 
-  describe("constructor", async () => {
+  describe("constructor", () => {
     it("sets the aggregator address correctly", async () => {
       const res = await adAuction.priceFeed()
       assert.equal(res, mockV3Aggregator.address)
     })
   })
 
-  describe("bidOnAd", async () => {
+  describe("bidOnAd", () => {
     it("Fails to bid before start auction time", async () => {
       const currentTimestamp = Math.floor(Date.now() / 1000)
       const secondAdAuction = await deployAdAuction(
@@ -89,8 +88,14 @@ describe("AdAuction", async () => {
       )
     })
 
+    // const bid = 5000000000    // ~76 years for 1 eth
+    // const bid = 100000000000  // ~3.8 years for 1 eth
+    // const bid = 500000000000  // ~9.1 months for 1 eth
+    // const bid = 5000000000000 // ~27.7 days for 1 eth
+    // const bid = 100000000000000 // ~33 hours for 1 eth
+    const bid = ethers.utils.parseEther("0.1") // ~2 minutes for 1 eth
+
     it("Sets bid and payment in eth", async () => {
-      const bid = 5000000000
       await adAuction.bidOnAd("Joy", "https://joy.com", "Hey Joy", bid, {
         value: oneEther,
       })
@@ -99,16 +104,24 @@ describe("AdAuction", async () => {
       assert.equal(res.name, "Joy")
       assert.equal(res.imageUrl, "https://joy.com")
       assert.equal(res.text, "Hey Joy")
-      assert.equal(res.blockBid.toNumber(), bid)
+      assert.equal(res.blockBid.toString(), bid.toString())
       assert.equal(
         res.timeLeft.toString(),
         oneEther.div(bid).mul(12).toString()
       )
-      console.log(`time left: ${res.timeLeft}`) // approx. 76 years
+      console.log(`time left: ${res.timeLeft}`)
+    })
+
+    it("Emits event on successful bid", async () => {
+      await expect(
+        await adAuction.bidOnAd("Joy", "https://joy.com", "Hey Joy", bid, {
+          value: oneEther,
+        })
+      ).to.emit(adAuction, "OnBid")
     })
   })
 
-  describe("topUp", async () => {
+  describe("topUp", () => {
     beforeEach(async () => {
       await adAuction.bidOnAd("Joy", "https://joy.com", "Hey Joy", 5000000000, {
         value: oneEther,
@@ -167,41 +180,63 @@ describe("AdAuction", async () => {
     })
   })
 
-  describe("withdraw by owner", async () => {
+  describe("After auction is over", () => {
     beforeEach(async () => {
       await adAuction.bidOnAd("Joy", "https://joy.com", "Hey Joy", 5, {
         value: oneEther,
       })
-      // todo: await new Promise((resolve) => setTimeout(resolve, 10000))
-      console.log("===========================================")
+
+      const startAuctionTime = await adAuction.startAuctionTime()
+      const endAuctionTime = await adAuction.endAuctionTime()
+      const auctionLength = endAuctionTime.sub(startAuctionTime)
+      const chargeInterval = await adAuction.chargeInterval()
+      const waitTime = auctionLength.add(chargeInterval).toNumber() + 1
+
+      await network.provider.send("evm_increaseTime", [waitTime])
+      await network.provider.send("evm_mine", [])
     })
 
-    // todo: finish
-    it("withdraw ETH from a single payer", async () => {
-      // Arrange
-      // const startingAuctionBalance = await adAuction.provider.getBalance(
-      //   adAuction.address
-      // )
-      // const deployerStartingBalance = await adAuction.provider.getBalance(
-      //   deployer
-      // )
-      // // Act
-      // const txResponse = await adAuction.withdraw(deployer)
-      // const txReceipt = await txResponse.wait(1)
-      // const { gasUsed, effectiveGasPrice } = txReceipt
-      // const gasCost = gasUsed.mul(effectiveGasPrice)
-      // const endingAuctionBalance = await adAuction.provider.getBalance(
-      //   adAuction.address
-      // )
-      // const endingDeployerBalance = await adAuction.provider.getBalance(
-      //   deployer
-      // )
-      // // Assert
-      // assert.equal(endingAuctionBalance.toString(), "0")
-      // assert.equal(
-      //   startingAuctionBalance.add(deployerStartingBalance).toString(),
-      //   endingDeployerBalance.add(gasCost).toString()
-      // )
+    describe("checkUpkeep", () => {})
+
+    describe("performUpkeep", () => {
+      it("calls performUpkeep after the auction and interval is over", async () => {
+        const tx = await adAuction.performUpkeep([])
+        assert(tx)
+        await expect(
+          adAuction.bidOnAd("Joy", "https://joy.com", "Hey Joy", 10, {
+            value: oneEther,
+          })
+        ).to.be.revertedWithCustomError(adAuction, "AdAuction__AuctionIsOver")
+      })
+    })
+
+    describe("withdraw by owner", () => {
+      it("withdraw ETH from a single payer", async () => {
+        // Arrange
+        // const startingAuctionBalance = await adAuction.provider.getBalance(
+        //   adAuction.address
+        // )
+        // const deployerStartingBalance = await adAuction.provider.getBalance(
+        //   deployer
+        // )
+        // // Act
+        // const txResponse = await adAuction.withdraw(deployer)
+        // const txReceipt = await txResponse.wait(1)
+        // const { gasUsed, effectiveGasPrice } = txReceipt
+        // const gasCost = gasUsed.mul(effectiveGasPrice)
+        // const endingAuctionBalance = await adAuction.provider.getBalance(
+        //   adAuction.address
+        // )
+        // const endingDeployerBalance = await adAuction.provider.getBalance(
+        //   deployer
+        // )
+        // // Assert
+        // assert.equal(endingAuctionBalance.toString(), "0")
+        // assert.equal(
+        //   startingAuctionBalance.add(deployerStartingBalance).toString(),
+        //   endingDeployerBalance.add(gasCost).toString()
+        // )
+      })
     })
   })
 })

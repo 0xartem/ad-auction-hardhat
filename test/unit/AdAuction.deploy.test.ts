@@ -52,6 +52,9 @@ describe("AdAuction Deployment", () => {
     const minBlockBid = await adAuction.minimumBlockBid()
     assert.equal(minBlockBid.toNumber(), 1)
 
+    const chargeInterval = await adAuction.chargeInterval()
+    assert.equal(chargeInterval.toNumber(), 10)
+
     const owner = await adAuction.owner()
     const signer = ethers.provider.getSigner()
     assert.equal(await signer.getAddress(), owner)
