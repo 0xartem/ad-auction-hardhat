@@ -62,7 +62,7 @@ contract AdAuction is IAdAuction, AutomationCompatibleInterface {
     uint256 public immutable startAuctionTime;
     uint256 public immutable endAuctionTime;
     uint256 public immutable minimumBlockBid;
-    uint256 private immutable chargeInterval;
+    uint256 public immutable chargeInterval;
     uint256 private lastTimestamp;
 
     uint256 public ownerBalanceAvailable;
@@ -229,12 +229,13 @@ contract AdAuction is IAdAuction, AutomationCompatibleInterface {
 
         if (address(this).balance < ownerBalanceAvailable)
             revert AdAuction__AdAuctionBalanceIsTooLow(); // assert ?
+        uint256 withdrawableBalance = ownerBalanceAvailable;
         ownerBalanceAvailable = 0;
 
-        (bool res, ) = receiver.call{value: ownerBalanceAvailable}("");
+        (bool res, ) = receiver.call{value: withdrawableBalance}("");
         if (!res) revert AdAuction__OwnerWithdrawalFailed();
 
-        emit BalanceWithdrawn(receiver, ownerBalanceAvailable);
+        emit BalanceWithdrawn(receiver, withdrawableBalance);
     }
 
     function chargeForAd() external {
