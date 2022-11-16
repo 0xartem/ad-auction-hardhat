@@ -295,6 +295,13 @@ contract AdAuction is IAdAuction, AutomationCompatibleInterface {
         chargeForAdCalc(addressToPayer[highestBidderAddr]);
     }
 
+    function getCurrentMinimumBid() public view returns (uint256) {
+        if (highestBidderAddr == address(0)) {
+            return minimumBlockBid;
+        }
+        return addressToPayer[highestBidderAddr].blockBid;
+    }
+
     function chargeForAdCalc(Payer storage winner) internal {
         if (winner.ethBalance == 0) revert AdAuction__NoFundsToCharge();
         // assert(winner.timeLeft == 0); // Should never happen
