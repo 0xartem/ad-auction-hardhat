@@ -25,9 +25,9 @@ export const networkConfig = {
   1337: {
     name: "localhost",
     // minimumBlockBid: ethers.utils.parseEther("0.1"), // ~2 minutes for 1 eth
-    minimumBlockBid: 1,
+    minimumBlockBid: 1000,
     chargeInterval: 5,
-    auctionLength: 10,
+    auctionLength: 60 * 60,
   },
   31337: {
     name: "hardhat",
