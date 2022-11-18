@@ -5,6 +5,7 @@ const FRONT_END_ADDRESSES_FILE =
   "../ad-auction-nextjs-app/constants/contractAddresses.json"
 const FRONT_END_ABI_FILE =
   "../ad-auction-nextjs-app/constants/adAuctionAbi.json"
+const AD_AUCTION_ABI_FILE = "./artifacts/contracts/AdAuction.sol/AdAuction.json"
 
 export default async function () {
   if (process.env.UPDATE_FRONT_END) {
@@ -15,11 +16,8 @@ export default async function () {
 }
 
 async function updateAbis() {
-  const adAuction = await ethers.getContract("AdAuction")
-  fs.writeFileSync(
-    FRONT_END_ABI_FILE,
-    adAuction.interface.format(ethers.utils.FormatTypes.json) as string
-  )
+  const adAuctionAbiRaw = fs.readFileSync(AD_AUCTION_ABI_FILE, "utf-8")
+  fs.writeFileSync(FRONT_END_ABI_FILE, adAuctionAbiRaw, "utf-8")
 }
 
 async function updateContractAddresses() {
