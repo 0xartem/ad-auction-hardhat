@@ -6,21 +6,21 @@ export const networkConfig = {
     ethUsdPriceFeed: "0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e",
     minimumBlockBid: 100000000000000, // ~33 hours for 1 eth
     chargeInterval: 30,
-    auctionLength: 60 * 10,
+    auctionLength: 60 * 60 * 60,
   },
   137: {
     name: "polygon",
     ethUsdPriceFeed: "0xF9680D99D6C9589e2a93a78A04A279e509205945",
     minimumBlockBid: 5000000000000, // ~27.7 days for 1 matic
     chargeInterval: 60,
-    auctionLength: 60 * 60,
+    auctionLength: 60 * 60 * 60,
   },
   1: {
     name: "mainnet",
     ethUsdPriceFeed: "",
     minimumBlockBid: 100000000000, // ~3.8 years for 1 eth
     chargeInterval: 60,
-    auctionLength: 60 * 60,
+    auctionLength: 60 * 60 * 60,
   },
   1337: {
     name: "localhost",
