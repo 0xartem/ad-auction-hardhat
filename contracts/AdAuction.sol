@@ -6,7 +6,6 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import {IAdAuction} from "./IAdAuction.sol";
 import {PriceOracle} from "./PriceOracle.sol";
-import "hardhat/console.sol";
 
 /** @title A contract for ad auction
  *  @author artem0x
@@ -140,6 +139,7 @@ contract AdAuction is IAdAuction, AutomationCompatibleInterface {
         string calldata _text,
         uint256 _blockBid
     ) external payable {
+        // @audit check usage of timestamp
         if (block.timestamp < startAuctionTime)
             revert AdAuction__AuctionHasntStartedYet();
         if (block.timestamp > endAuctionTime) revert AdAuction__AuctionIsOver();
@@ -151,9 +151,6 @@ contract AdAuction is IAdAuction, AutomationCompatibleInterface {
 
         if (msg.value < _blockBid) revert AdAuction__PaidAmountIsLowerThanBid();
 
-        uint256 usdBid = _blockBid.convertEthToUsd(priceFeed);
-        console.log("USD bid %i", usdBid);
-
         Payer storage payer = addressToPayer[msg.sender];
         payer.ethBalance += msg.value;
         payer.blockBid = _blockBid;
@@ -163,7 +160,6 @@ contract AdAuction is IAdAuction, AutomationCompatibleInterface {
         payer.withdrew = false;
         highestBidderAddr = msg.sender;
 
-        console.log("ETH balance %i", payer.ethBalance);
         uint256 timeLeft = (payer.ethBalance / _blockBid) * 12; // 12 secs per block
         payer.timeLeft = timeLeft;
 
